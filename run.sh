@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-python resnet_main.py --train_data_path=./cifar10/data_batch* \
+python resnet_main.py --train_data_path=./photo* \
                       --log_root=./log \
                       --train_dir=./train \
-                      --dataset='cifar10' \
+                      --dataset='sketchy' \
                       --num_gpus=1

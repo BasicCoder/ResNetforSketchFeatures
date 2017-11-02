@@ -6,12 +6,13 @@ import six
 import sys
 
 import cifar_input
+import sketchy_input
 import numpy as np
 import resnet_model
 import tensorflow as tf
 
 FLAGS = tf.app.flags.FLAGS
-tf.app.flags.DEFINE_string('dataset', 'cifar10', 'cifar10 or cifar100.')
+tf.app.flags.DEFINE_string('dataset', 'cifar10', 'cifar10, cifar100 or sketchy.')
 tf.app.flags.DEFINE_string('mode', 'train', 'train or eval.')
 tf.app.flags.DEFINE_string('train_data_path', '', 'Filepattern for training data')
 tf.app.flags.DEFINE_string('eval_data_path', '', 'Filepattern for eval data.')
@@ -25,7 +26,8 @@ tf.app.flags.DEFINE_integer('num_gpus', 0, 'Number of gpus used for training. (0
 
 def train(hps):
     """Training loop."""
-    images, labels = cifar_input.build_input(FLAGS.dataset, FLAGS.train_data_path, hps.batch_size, FLAGS.mode)
+    # images, labels = cifar_input.build_input(FLAGS.dataset, FLAGS.train_data_path, hps.batch_size, FLAGS.mode)
+    images, labels = sketchy_input.build_input(FLAGS.dataset, FLAGS.train_data_path, hps.batch_size, FLAGS.mode)
     model = resnet_model.ResNet(hps, images, labels, FLAGS.mode)
     model.build_graph()
 
@@ -170,6 +172,8 @@ def main(_):
         num_classes = 10
     elif FLAGS.dataset == 'cifar100':
         num_classes = 100
+    elif FLAGS.dataset == 'sketchy':
+        num_classes = 125
 
 
     hps = resnet_model.HParams(batch_size = batch_size,

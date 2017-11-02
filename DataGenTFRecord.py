@@ -14,6 +14,10 @@ def _bytes_feature(value):
     return tf.train.Feature(bytes_list = tf.train.BytesList(value = [value]))
 
 def ConvertToRecord(data_path, record_name):
+
+    if not os.path.exists(data_path):
+        print "Data path not exist!"
+        return
     (root, classes, files) = next(os.walk(data_path))
     
     writer = tf.python_io.TFRecordWriter(record_name + '.tfrecords')
@@ -39,7 +43,7 @@ def ConvertToRecord(data_path, record_name):
 
 
 if __name__ == '__main__':
-    data_path = r'~/Work/Database/sketchy/256x256/photo/tx_000100000000'
+    data_path = r'/home/bc/Work/Database/sketchy/256x256/photo/tx_000100000000'
     record_name = 'photo'
 
     ConvertToRecord(data_path, record_name)
