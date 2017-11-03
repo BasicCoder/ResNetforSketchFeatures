@@ -10,7 +10,7 @@ import six
 from tensorflow.python.training import moving_averages
 
 HParams = namedtuple('HParams',
-                     'batch_size, num_classes, min_lrn_rate, lrn_rate, '
+                     'batch_size, num_classes, num_layers, min_lrn_rate, lrn_rate, '
                      'num_residual_units, use_bottleneck, weight_decay_rate, '
                      'relu_leakiness, optimizer')
 
@@ -47,37 +47,69 @@ class ResNet(object):
         """Build the core model within the graph."""
         with tf.variable_scope('init'):
             x = self._images
-            x = self._conv('init_conv', x, 3, 3, 16, self._stride_arr(1))
+            x = self._conv('init_conv', x, 7, 3, 64, self._stride_arr(2))
 
             strides = [1, 2, 2]
-            activate_before_residual = [True, False, False]
+            activate_before_residual = [True, False, False, False]
+
+            if self.hps.num_layers == 18:
+                num_residual_units = [2, 2, 2, 2]
+            elif self.hps.num_layers == 34:
+                num_residual_units = [3, 4, 6, 3]
+            elif self.hps.num_layers == 50:
+                num_residual_units = [3, 4, 6, 3]
+            elif self.hps.num_layers == 101:
+                num_residual_units = [3, 4, 23, 3]
+            elif self.hps.num_layers == 152:
+                num_residual_units = [3, 8, 36, 3]
+
+
+            if self.hps.num_layers <= 34:
+                res_func = self._residual
+                filters = [64, 64, 128, 256, 512]
+            elif self.hps.num_layers >= 50:
+                res_func = self._bottleneck_residual
+                filters = [64, 256, 512, 1024, 2048]
+
+            '''
             if self.hps.use_bottleneck:
                 res_func = self._bottleneck_residual
                 filters = [16, 64, 128, 256]
             else:
                 res_func = self._residual
-                filters = [16, 16, 32, 256]
+                filters = [16, 16, 32, 64]
+            '''
+
+        with tf.variable_scope('unit_1_pool'):
+            x = self._max_pool('max_pool', x, filter_size = 3, strides = self._stride_arr(2))
 
         with tf.variable_scope('unit_1_0'):
             x = res_func(x, filters[0], filters[1], self._stride_arr(strides[0]), activate_before_residual[0])
 
-        for i in six.moves.range(1, self.hps.num_residual_units):
+        for i in six.moves.range(1, num_residual_units[0]):
             with tf.variable_scope('unit_1_%d' % i):
                 x = res_func(x, filters[1], filters[1], self._stride_arr(1), False)
 
         with tf.variable_scope('unit_2_0'):
             x = res_func(x, filters[1], filters[2], self._stride_arr(strides[1]), activate_before_residual[1])
 
-        for i in six.moves.range(1, self.hps.num_residual_units):
+        for i in six.moves.range(1, num_residual_units[1]):
             with tf.variable_scope('unit_2_%d' % i):
                 x = res_func(x, filters[2], filters[2], self._stride_arr(1), False)
 
         with tf.variable_scope('unit_3_0'):
             x = res_func(x, filters[2], filters[3], self._stride_arr(strides[2]), activate_before_residual[2])
 
-        for i in six.moves.range(1, self.hps.num_residual_units):
+        for i in six.moves.range(1, num_residual_units[2]):
             with tf.variable_scope('unit_3_%i' % i):
                 x = res_func(x, filters[3], filters[3], self._stride_arr(1), False)
+
+        with tf.variable_scope('unit_4_0'):
+            x = res_func(x, filters[3], filters[4], self._stride_arr(strides[2]), activate_before_residual[3])
+
+        for i in six.moves.range(1, num_residual_units[3]):
+            with tf.variable_scope('unit_4_%i' % i):
+                x = res_func(x, filters[4], filters[4], self._stride_arr(1), False)
 
         with tf.variable_scope('unit_last'):
             x = self._batch_norm('final_bn', x)
@@ -235,3 +267,7 @@ class ResNet(object):
     def _global_avg_pool(self, x):
         assert x.get_shape().ndims == 4
         return tf.reduce_mean(x, [1,2])
+
+    def _max_pool(self, name, x, filter_size, strides):
+        with tf.variable_scope(name):
+            return tf.nn.max_pool(x, ksize=[1, filter_size, filter_size, 1], strides=strides, padding='SAME')

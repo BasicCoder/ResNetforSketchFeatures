@@ -42,6 +42,7 @@ def build_input(dataset, data_path, batch_size, mode):
     image = tf.reshape(image, [image_size, image_size, depth])
 
     label = tf.cast(features['image_label'], tf.int32)
+
     label = tf.reshape(label, [1])
     image = tf.cast(image, tf.float32)
 

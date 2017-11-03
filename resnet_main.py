@@ -178,6 +178,7 @@ def main(_):
 
     hps = resnet_model.HParams(batch_size = batch_size,
                                num_classes = num_classes,
+                               num_layers=34,
                                min_lrn_rate=0.0001,
                                lrn_rate=0.1,
                                num_residual_units=5,
