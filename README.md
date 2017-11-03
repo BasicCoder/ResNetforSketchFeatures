@@ -14,6 +14,9 @@ Read data:
 Model build:
 > - resnet_model.py : build ResNet Model
 
+Train Model:
+> - resnet_main.py : train model
+
 ## 3. Data:
 Sketchy dataset
 
