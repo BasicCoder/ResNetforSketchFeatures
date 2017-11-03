@@ -164,7 +164,7 @@ def main(_):
         raise ValueError('Only support 0 or 1 gpu')
 
     if FLAGS.mode == 'train':
-        batch_size = 128
+        batch_size = 32
     elif FLAGS.mode == 'eval':
         batch_size = 100
 
@@ -185,11 +185,11 @@ def main(_):
                                weight_decay_rate=0.0002,
                                relu_leakiness=0.1,
                                optimizer='mom')
-    with tf.device(dev):
-        if FLAGS.mode == 'train':
-            train(hps)
-        elif FLAGS.mode == 'eval':
-            evaluate(hps)
+    # with tf.device(dev):
+    if FLAGS.mode == 'train':
+        train(hps)
+    elif FLAGS.mode == 'eval':
+        evaluate(hps)
 
 if __name__ == '__main__':
     tf.logging.set_verbosity(tf.logging.INFO)

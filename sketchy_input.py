@@ -26,7 +26,7 @@ def build_input(dataset, data_path, batch_size, mode):
 
     depth = 3
 
-    data_files = tf.gfile.Glob(dataset)
+    data_files = tf.gfile.Glob(data_path)
     file_queue = tf.train.string_input_producer(data_files, shuffle=True)
     # Read examples from files in the filename queue.
     reader = tf.TFRecordReader()
@@ -38,8 +38,8 @@ def build_input(dataset, data_path, batch_size, mode):
         'image_raw': tf.FixedLenFeature([], tf.string)
     })
 
-    image = tf.decode_raw(features['image_label'], tf.uint8)
-    image = tf.reshape(image, [256, 256, 3])
+    image = tf.decode_raw(features['image_raw'], tf.uint8)
+    image = tf.reshape(image, [image_size, image_size, depth])
 
     label = tf.cast(features['image_label'], tf.int32)
     image = tf.cast(image, tf.float32)
@@ -54,8 +54,8 @@ def build_input(dataset, data_path, batch_size, mode):
         example_queue = tf.RandomShuffleQueue(
             capacity = 16 * batch_size,
             min_after_dequeue = 8 * batch_size,
-            dtypes = [tf.float32, tf.int32],
-            shapes = [[image_size, image_size, depth], [1]]
+            dtypes=[tf.float32, tf.int32],
+            shapes=[[image_size, image_size, depth], []]
         )
         num_threads = 16
 
@@ -65,11 +65,13 @@ def build_input(dataset, data_path, batch_size, mode):
 
         example_queue = tf.FIFOQueue(
             3 * batch_size,
-            dtypes = [tf.float32, tf.int32],
-            shapes = [[image_size, image_size, depth], [1]]
+            dtypes=[tf.float32, tf.int32],
+            shapes=[[image_size, image_size, depth], []]
         )
         num_threads = 1
 
+    assert len(image.get_shape()) == 3
+    assert len(example_queue.shapes[0]) == 3
     example_queue_op = example_queue.enqueue([image, label])
     tf.train.add_queue_runner(tf.train.queue_runner.QueueRunner(example_queue, [example_queue_op] * num_threads))
 
