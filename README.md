@@ -20,7 +20,13 @@ Train Model:
 ## 3. Data:
 Sketchy dataset
 
-## 4. References:
+## 4. Run:
+### 1). Generation TFRecord:
+> - python DataGenTFRecord.py
+### 2). Train Model:
+> - ./run.sh
+
+## 5. References:
 
 **Note:**
 > - The picture has nothing to do with the content!

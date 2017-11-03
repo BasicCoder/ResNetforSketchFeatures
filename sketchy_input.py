@@ -42,6 +42,7 @@ def build_input(dataset, data_path, batch_size, mode):
     image = tf.reshape(image, [image_size, image_size, depth])
 
     label = tf.cast(features['image_label'], tf.int32)
+    label = tf.reshape(label, [1])
     image = tf.cast(image, tf.float32)
 
     if mode == 'train':
@@ -55,7 +56,7 @@ def build_input(dataset, data_path, batch_size, mode):
             capacity = 16 * batch_size,
             min_after_dequeue = 8 * batch_size,
             dtypes=[tf.float32, tf.int32],
-            shapes=[[image_size, image_size, depth], []]
+            shapes=[[image_size, image_size, depth], [1]]
         )
         num_threads = 16
 
@@ -66,12 +67,13 @@ def build_input(dataset, data_path, batch_size, mode):
         example_queue = tf.FIFOQueue(
             3 * batch_size,
             dtypes=[tf.float32, tf.int32],
-            shapes=[[image_size, image_size, depth], []]
+            shapes=[[image_size, image_size, depth], [1]]
         )
         num_threads = 1
 
     assert len(image.get_shape()) == 3
-    assert len(example_queue.shapes[0]) == 3
+    assert label.get_shape() == 1
+    assert len(example_queue.shapes[1]) == 1
     example_queue_op = example_queue.enqueue([image, label])
     tf.train.add_queue_runner(tf.train.queue_runner.QueueRunner(example_queue, [example_queue_op] * num_threads))
 
