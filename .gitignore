@@ -1,1 +1,9 @@
 .idea/
+photo.tfrecords
+photo_test.tfrecords
+airplane/
+log/
+train/
+__pycache__/
+*.py[cod]
+*$py.class

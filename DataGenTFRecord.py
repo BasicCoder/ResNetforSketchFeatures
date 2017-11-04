@@ -19,7 +19,11 @@ def ConvertToRecord(data_path, record_name):
         print "Data path not exist!"
         return
     (root, classes, files) = next(os.walk(data_path))
-    
+
+    print(len(classes))
+    for index, class_name in enumerate(classes):
+        print(index, class_name)
+
     writer = tf.python_io.TFRecordWriter(record_name + '.tfrecords')
 
     for index, class_name in enumerate(classes):
