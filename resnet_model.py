@@ -33,7 +33,7 @@ class ResNet(object):
 
     def build_graph(self):
         """Build a whole graph for the model."""
-        self.global_step = tf.contrib.framework.get_or_create_global_step()
+        self.global_step = tf.train.get_or_create_global_step()
         self._build_model()
         if self.mode == 'train':
             self._build_train_op()
@@ -48,9 +48,11 @@ class ResNet(object):
         with tf.variable_scope('init'):
             x = self._images
             x = self._conv('init_conv', x, 7, 3, 64, self._stride_arr(2))
+            x = self._batch_norm('init_bn', x)
+            x = self._relu(x, self.hps.relu_leakiness)
 
-            strides = [1, 2, 2]
-            activate_before_residual = [True, False, False, False]
+            strides = [1, 2]
+            activate_before_residual = [False, True, True, True]
 
             if self.hps.num_layers == 18:
                 num_residual_units = [2, 2, 2, 2]
@@ -88,31 +90,31 @@ class ResNet(object):
 
         for i in six.moves.range(1, num_residual_units[0]):
             with tf.variable_scope('unit_1_%d' % i):
-                x = res_func(x, filters[1], filters[1], self._stride_arr(1), False)
+                x = res_func(x, filters[1], filters[1], self._stride_arr(1), True)
 
         with tf.variable_scope('unit_2_0'):
-            x = res_func(x, filters[1], filters[2], self._stride_arr(strides[1]), activate_before_residual[1])
+            x = res_func(x, filters[1], filters[2], self._stride_arr(strides[1]),  activate_before_residual[1])
 
         for i in six.moves.range(1, num_residual_units[1]):
             with tf.variable_scope('unit_2_%d' % i):
-                x = res_func(x, filters[2], filters[2], self._stride_arr(1), False)
+                x = res_func(x, filters[2], filters[2], self._stride_arr(1), True)
 
         with tf.variable_scope('unit_3_0'):
-            x = res_func(x, filters[2], filters[3], self._stride_arr(strides[2]), activate_before_residual[2])
+            x = res_func(x, filters[2], filters[3], self._stride_arr(strides[1]),activate_before_residual[2])
 
         for i in six.moves.range(1, num_residual_units[2]):
             with tf.variable_scope('unit_3_%i' % i):
-                x = res_func(x, filters[3], filters[3], self._stride_arr(1), False)
+                x = res_func(x, filters[3], filters[3], self._stride_arr(1), True)
 
         with tf.variable_scope('unit_4_0'):
-            x = res_func(x, filters[3], filters[4], self._stride_arr(strides[2]), activate_before_residual[3])
+            x = res_func(x, filters[3], filters[4], self._stride_arr(strides[1]), activate_before_residual[3])
 
         for i in six.moves.range(1, num_residual_units[3]):
             with tf.variable_scope('unit_4_%i' % i):
-                x = res_func(x, filters[4], filters[4], self._stride_arr(1), False)
+                x = res_func(x, filters[4], filters[4], self._stride_arr(1), True)
 
         with tf.variable_scope('unit_last'):
-            x = self._batch_norm('final_bn', x)
+            # x = self._batch_norm('final_bn', x)
             x = self._relu(x, self.hps.relu_leakiness)
             x = self._global_avg_pool(x)
 
@@ -142,6 +144,8 @@ class ResNet(object):
 
         apply_op  = optimizer.apply_gradients(zip(grads, trainable_variables), global_step = self.global_step, name = 'train_step')
 
+        summaries = tf.summary.merge_all()
+        self._extra_train_ops.append(summaries)
         train_ops = [apply_op] + self._extra_train_ops
         self.train_op = tf.group(*train_ops)
 
@@ -162,7 +166,7 @@ class ResNet(object):
                 self._extra_train_ops.append(moving_averages.assign_moving_average(moving_mean, mean, 0.9))
                 self._extra_train_ops.append(moving_averages.assign_moving_average(moving_variance, variance, 0.9))
             else:
-                mean = tf.get_variable('moving_meian', params_shape, tf.float32, initializer=tf.constant_initializer(0.0, tf.float32), trainable=False)
+                mean = tf.get_variable('moving_mean', params_shape, tf.float32, initializer=tf.constant_initializer(0.0, tf.float32), trainable=False)
                 variance = tf.get_variable('moving_variance', params_shape, tf.float32, initializer=tf.constant_initializer(1.0, tf.float32), trainable=False)
 
                 tf.summary.histogram(mean.op.name, mean)
@@ -171,66 +175,69 @@ class ResNet(object):
             y.set_shape(x.get_shape())
             return y
 
-    def _residual(self, x, in_filter, out_filter, stride, activate_before_residual = False):
+    def _residual(self, x, in_filter, out_filter, stride, activate_before_residual = True):
         """Residual unit with 2 sub layers"""
+
         if activate_before_residual:
             with tf.variable_scope('shared_activation'):
-                x = self._batch_norm('init_bn', x)
                 x = self._relu(x, self.hps.relu_leakiness)
                 orig_x = x
         else:
-            with tf.variable_scope('residual_only_activation'):
+             with tf.variable_scope('residual_only_activation'):
                 orig_x = x
-                x = self._batch_norm('init_bn', x)
-                x = self._relu(x, self.hps.relu_leakiness)
 
         with tf.variable_scope('sub1'):
             x = self._conv('conv1', x, 3, in_filter, out_filter, stride)
+            x = self._batch_norm('bn1', x)
+            x = self._relu(x, self.hps.relu_leakiness)
 
         with tf.variable_scope('sub2'):
+            x = self._conv('conv2', x, 3, out_filter, out_filter, [1, 1, 1, 1])
             x = self._batch_norm('bn2', x)
             x = self._relu(x, self.hps.relu_leakiness)
-            x = self._conv('conv2', x, 3, out_filter, out_filter, [1, 1, 1, 1])
 
         with tf.variable_scope('sub_add'):
             if in_filter != out_filter:
-                orig_x = tf.nn.avg_pool(orig_x, stride, stride, 'VALID')
-                orig_x = tf.pad(orig_x, [[0,0], [0,0], [0,0], [(out_filter - in_filter)//2 , (out_filter - in_filter)//2]])
-
+                # orig_x = tf.nn.avg_pool(orig_x, stride, stride, 'VALID')
+                # orig_x = tf.pad(orig_x, [[0,0], [0,0], [0,0], [(out_filter - in_filter)//2 , (out_filter - in_filter)//2]])
+                orig_x = self._conv('project_1', orig_x, 1, in_filter, out_filter, stride)
+                orig_x = self._batch_norm('project_2', orig_x)
             x += orig_x
 
         tf.logging.debug('image after unit %s', x.get_shape())
         return x
 
-    def _bottleneck_residual(self, x, in_filter, out_filter, stride, activate_before_residual=False):
+    def _bottleneck_residual(self, x, in_filter, out_filter, stride, activate_before_residual = True):
         """Bottleneck residual unit with 3 sub layers."""
+
         if activate_before_residual:
             with tf.variable_scope('common_bn_relu'):
-                x = self._batch_norm('init_bn', x)
                 x = self._relu(x, self.hps.relu_leakiness)
                 orig_x = x
         else:
             with tf.variable_scope('residual_bn_relu'):
                 orig_x = x
-                x = self._batch_norm('init_bn', x)
-                x = self._relu(x, self.hps.relu_leakiness)
+
 
         with tf.variable_scope('sub1'):
             x = self._conv('conv1', x, 1, in_filter, out_filter/4, stride)
+            x = self._batch_norm('bn1', x)
+            x = self._relu(x, self.hps.relu_leakiness)
 
         with tf.variable_scope('sub2'):
+            x = self._conv('conv2', x, 3, out_filter/4, out_filter/4, [1, 1, 1, 1])
             x = self._batch_norm('bn2', x)
             x = self._relu(x, self.hps.relu_leakiness)
-            x = self._conv('conv2', x, 3, out_filter/4, out_filter/4, [1, 1, 1, 1])
 
         with tf.variable_scope('sub3'):
+            x = self._conv('conv3', x, 1, out_filter/4, out_filter, [1, 1, 1, 1])
             x = self._batch_norm('bn3', x)
             x = self._relu(x, self.hps.relu_leakiness)
-            x = self._conv('conv3', x, 1, out_filter/4, out_filter, [1, 1, 1, 1])
 
         with tf.variable_scope('sub_add'):
             if in_filter != out_filter:
-                orig_x = self._conv('project', orig_x, 1, in_filter, out_filter, stride)
+                orig_x = self._conv('project_1', orig_x, 1, in_filter, out_filter, stride)
+                orig_x = self._batch_norm('project_2', orig_x)
             x += orig_x
 
         tf.logging.info('image after unit %s', x.get_shape())
@@ -245,11 +252,13 @@ class ResNet(object):
 
         return tf.multiply(self.hps.weight_decay_rate, tf.add_n(costs))
 
+
     def _conv(self, name, x, filter_size, in_filters, out_filters, strides):
         """Convolution."""
         with tf.variable_scope(name):
             n = filter_size * filter_size * out_filters
             kernel = tf.get_variable('DW', [filter_size, filter_size, in_filters, out_filters], tf.float32, initializer=tf.random_normal_initializer(stddev=np.sqrt(2.0/n)))
+            tf.summary.histogram(kernel.op.name, kernel)
             return tf.nn.conv2d(x, kernel, strides, padding='SAME')
 
     def _relu(self, x, leakiness = 0.0):

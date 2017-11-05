@@ -29,6 +29,7 @@ def train(hps):
     images, labels = sketchy_input.build_input(FLAGS.dataset, FLAGS.train_data_path, hps.batch_size, FLAGS.mode)
     global_step = tf.train.get_or_create_global_step()
 
+    truth = tf.argmax(labels, axis=1)
     summary_hook = tf.train.SummarySaverHook(
         save_steps = 100,
         output_dir = FLAGS.train_dir,
@@ -38,7 +39,8 @@ def train(hps):
     logging_hook = tf.train.LoggingTensorHook(
         tensors = {
             'step': global_step,
-            'labels': labels
+            'labels': labels,
+            'truth': truth
         },
         every_n_iter=100
     )
@@ -48,11 +50,15 @@ def train(hps):
         hooks = [logging_hook, tf.train.StopAtStepHook(last_step=500)],
         save_summaries_steps = 0,
         config = tf.ConfigProto(allow_soft_placement = True)) as mon_sess:
-            for i in range(1): 
-                example, l = mon_sess.run([images, labels])
+            for i in range(10): 
+                example, l, t = mon_sess.run([images, labels, truth])
+                print(t)
+                '''
                 np.set_printoptions(threshold='nan')
                 print("label", l[0])
-                print("example", example[0][255])
+                print("example_length:", example[0][0].shape)
+                print("example", example[0][223])
+                '''
 
 def main(_):
 

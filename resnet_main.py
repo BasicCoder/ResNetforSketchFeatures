@@ -56,15 +56,17 @@ def train(hps):
         tensors = {
             'step': model.global_step,
             'loss': model.cost,
-            'precision': precision
+            'precision': precision,
+            'truth': truth,
+            'predictions': predictions
         },
-        every_n_iter=100
+        every_n_iter=50
     )
 
     class _LearningRateSetterHook(tf.train.SessionRunHook):
         """Sets learning_rate based on global step."""
         def begin(self):
-            self._lrn_rate = 0.1
+            self._lrn_rate = 0.001
 
         def before_run(self, run_context):
             return tf.train.SessionRunArgs(model.global_step, feed_dict={model.lrn_rate: self._lrn_rate})
@@ -72,12 +74,12 @@ def train(hps):
         def after_run(self, run_context, run_values):
             train_step = run_values.results
             if train_step < 40000:
-                self._lrn_rate = 0.1
+                self._lrn_rate = 0.0001
 
             elif train_step < 60000:
-                self._lrn_rate = 0.01
+                self._lrn_rate = 0.0001
             elif train_step < 80000:
-                self._lrn_rate = 0.001
+                self._lrn_rate = 0.00001
             else:
                 self._lrn_rate = 0.0001
 
@@ -186,11 +188,11 @@ def main(_):
                                weight_decay_rate=0.0002,
                                relu_leakiness=0.1,
                                optimizer='mom')
-    # with tf.device(dev):
-    if FLAGS.mode == 'train':
-        train(hps)
-    elif FLAGS.mode == 'eval':
-        evaluate(hps)
+    with tf.device(dev):
+        if FLAGS.mode == 'train':
+            train(hps)
+        elif FLAGS.mode == 'eval':
+            evaluate(hps)
 
 if __name__ == '__main__':
     tf.logging.set_verbosity(tf.logging.INFO)

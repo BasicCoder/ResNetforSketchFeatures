@@ -20,7 +20,7 @@ def build_input(dataset, data_path, batch_size, mode):
     image_size = 256
     if dataset == 'sketchy':
         num_classes = 125
-
+        image_resize = 224
     else:
         raise ValueError('Not supported dataset %s', dataset)
 
@@ -47,8 +47,8 @@ def build_input(dataset, data_path, batch_size, mode):
     image = tf.cast(image, tf.float32)
 
     if mode == 'train':
-        image = tf.image.resize_image_with_crop_or_pad(image, image_size+4, image_size+4)
-        image = tf.random_crop(image, [image_size, image_size, 3])
+        image = tf.image.resize_image_with_crop_or_pad(image, image_size+32, image_size+32)
+        image = tf.random_crop(image, [image_resize, image_resize, 3])
         image = tf.image.random_flip_left_right(image)
 
         image = tf.image.per_image_standardization(image)
@@ -57,18 +57,18 @@ def build_input(dataset, data_path, batch_size, mode):
             capacity = 16 * batch_size,
             min_after_dequeue = 8 * batch_size,
             dtypes=[tf.float32, tf.int32],
-            shapes=[[image_size, image_size, depth], [1]]
+            shapes=[[image_resize, image_resize, depth], [1]]
         )
         num_threads = 16
 
     else:
-        image = tf.image.resize_image_with_crop_or_pad(image, image_size, image_size)
+        image = tf.image.resize_image_with_crop_or_pad(image, image_resize, image_resize)
         image = tf.image.per_image_standardization(image)
 
         example_queue = tf.FIFOQueue(
             3 * batch_size,
             dtypes=[tf.float32, tf.int32],
-            shapes=[[image_size, image_size, depth], [1]]
+            shapes=[[image_resize, image_resize, depth], [1]]
         )
         num_threads = 1
 
