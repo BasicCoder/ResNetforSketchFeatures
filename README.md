@@ -28,5 +28,7 @@ Sketchy dataset
 
 ## 5. References:
 
+
+![](https://raw.githubusercontent.com/BasicCoder/ResNetforSketchFeatures/master/5-160ZF94411.jpg)
 **Note:**
 > - The picture has nothing to do with the content!
